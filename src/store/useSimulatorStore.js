@@ -342,19 +342,320 @@ export const useSimulatorStore = create((set, get) => ({
     }))
   },
 
+  healNode: (nodeId) => {
+    set((state) => {
+      const node = state.nodes.find(n => n.id === nodeId)
+      if (!node) return state
+      
+      if (!node.data.isInfected && node.data.status !== 'compromised') {
+        return state // Node is already healthy
+      }
+
+      return {
+        nodes: state.nodes.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  status: 'secure',
+                  isInfected: false,
+                  healingProgress: 100,
+                },
+              }
+            : n
+        ),
+        logs: [
+          {
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'node_healed',
+            node: nodeId,
+            details: `Node ${nodeId} has been healed and restored to secure status`,
+            severity: 'success',
+          },
+          ...state.logs,
+        ],
+        metrics: {
+          ...state.metrics,
+          nodesInfected: Math.max(0, state.metrics.nodesInfected - 1),
+        },
+      }
+    })
+  },
+
+  startAutoHeal: (nodeId) => {
+    set((state) => {
+      const node = state.nodes.find(n => n.id === nodeId)
+      if (!node) {
+        console.log(`[DEBUG] startAutoHeal: Node ${nodeId} not found`)
+        return state
+      }
+      
+      if (!node.data.isInfected && node.data.status !== 'compromised') {
+        console.log(`[DEBUG] startAutoHeal: Node ${nodeId} is already healthy (status: ${node.data.status}, infected: ${node.data.isInfected})`)
+        return state // Node is already healthy
+      }
+
+      console.log(`[DEBUG] startAutoHeal: Starting healing on ${nodeId} (status: ${node.data.status}, infected: ${node.data.isInfected})`)
+
+      return {
+        nodes: state.nodes.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  status: 'healing',
+                  healingProgress: 0,
+                  healingStartTick: Date.now(),
+                },
+              }
+            : n
+        ),
+        logs: [
+          {
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_started',
+            node: nodeId,
+            details: `Auto-healing started on ${nodeId} (Security Level: ${node.data.securityLevel})`,
+            severity: 'info',
+          },
+          ...state.logs,
+        ],
+      }
+    })
+  },
+
+  processAutoHealing: () => {
+    set((state) => {
+      // Find nodes that should be healing (either status=healing OR infected with progress)
+      const healingNodes = state.nodes.filter(n => 
+        n.data.status === 'healing' || 
+        (n.data.isInfected && n.data.healingProgress !== undefined && n.data.healingProgress > 0)
+      )
+      
+      if (healingNodes.length === 0) return state
+
+      let updatedNodes = [...state.nodes]
+      const healingLogs = []
+
+      healingNodes.forEach(node => {
+        const currentProgress = node.data.healingProgress || 0
+        
+        // Variable healing progress based on security level and random factors
+        const baseRate = (node.data.securityLevel || 1) * 10 // Lower base rate
+        const antivirusBonus = node.data.defenses?.find(d => d.type === 'antivirus') ? 8 : 0
+        const randomVariation = Math.floor(Math.random() * 12) - 3 // -3 to +8 variation
+        const rareBoost = Math.random() < 0.1 ? Math.floor(Math.random() * 8) + 5 : 0 // 10% chance of big boost
+        
+        const finalRate = Math.max(3, baseRate + antivirusBonus + randomVariation + rareBoost)
+        const newProgress = Math.min(100, currentProgress + finalRate)
+        
+        // Update node progress and status immediately
+        updatedNodes = updatedNodes.map(n => 
+          n.id === node.id 
+            ? { 
+                ...n, 
+                data: { 
+                  ...n.data, 
+                  healingProgress: newProgress,
+                  status: newProgress >= 100 ? 'secure' : 'healing' // Ensure proper status
+                } 
+              }
+            : n
+        )
+        
+        // Log healing progress
+        if (currentProgress < 50) {
+          healingLogs.push({
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_tick',
+            node: node.id,
+            details: `Healing ${node.id}: ${currentProgress}% → ${newProgress}% (+${finalRate}%)`,
+            severity: 'info',
+          })
+        }
+
+        // Log healing progress at meaningful milestones
+        if (newProgress >= 25 && currentProgress < 25) {
+          healingLogs.push({
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_progress',
+            node: node.id,
+            details: `Healing progress: 25% on ${node.id} (+${finalRate}% this tick)`,
+            severity: 'info',
+          })
+        } else if (newProgress >= 50 && currentProgress < 50) {
+          healingLogs.push({
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_progress',
+            node: node.id,
+            details: `Healing progress: 50% on ${node.id} (+${finalRate}% this tick)`,
+            severity: 'info',
+          })
+        } else if (newProgress >= 75 && currentProgress < 75) {
+          healingLogs.push({
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_progress',
+            node: node.id,
+            details: `Healing progress: 75% on ${node.id} (+${finalRate}% this tick)`,
+            severity: 'info',
+          })
+        }
+
+        // Complete healing
+        if (newProgress >= 100) {
+          updatedNodes = updatedNodes.map(n => 
+            n.id === node.id 
+              ? { 
+                  ...n, 
+                  data: { 
+                    ...n.data, 
+                    status: 'secure', 
+                    isInfected: false, 
+                    healingProgress: 100 
+                  } 
+                }
+              : n
+          )
+
+          healingLogs.push({
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'auto_heal_complete',
+            node: node.id,
+            details: `Auto-healing completed on ${node.id} (Total progress: ${finalRate}%)`,
+            severity: 'success',
+          })
+        }
+      })
+
+      const healedCount = updatedNodes.filter(n => n.data.status === 'secure' && 
+        state.nodes.find(old => old.id === n.id && (old.data.isInfected || old.data.status === 'compromised'))).length
+
+      return {
+        nodes: updatedNodes, // Use the updated nodes with progress
+        logs: [...healingLogs, ...state.logs].slice(0, 500),
+        metrics: {
+          ...state.metrics,
+          nodesInfected: Math.max(0, state.metrics.nodesInfected - healedCount),
+        },
+      }
+    })
+  },
+
+  disruptHealing: (nodeId) => {
+    set((state) => {
+      const node = state.nodes.find(n => n.id === nodeId)
+      if (!node || node.data.status !== 'healing') return state
+
+      return {
+        nodes: state.nodes.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  status: 'compromised',
+                  healingProgress: 0,
+                },
+              }
+            : n
+        ),
+        logs: [
+          {
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'healing_disrupted',
+            node: nodeId,
+            details: `Healing disrupted on ${nodeId} due to new attack`,
+            severity: 'warning',
+          },
+          ...state.logs,
+        ],
+      }
+    })
+  },
+
+  healAllNodes: () => {
+    set((state) => {
+      const infectedNodes = state.nodes.filter(n => n.data.isInfected || n.data.status === 'compromised')
+      if (infectedNodes.length === 0) return state
+
+      return {
+        nodes: state.nodes.map((node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            status: 'secure',
+            isInfected: false,
+          },
+        })),
+        logs: [
+          {
+            id: randomId('log'),
+            timestamp: nowTime(),
+            eventType: 'mass_heal',
+            details: `Mass healing completed: ${infectedNodes.length} nodes restored`,
+            severity: 'success',
+          },
+          ...state.logs,
+        ],
+        metrics: {
+          ...state.metrics,
+          nodesInfected: 0,
+          activeAlerts: 0,
+        },
+      }
+    })
+  },
+
   processTick: () => {
     const state = get()
     if (!state.simulationStatus.running) return
-    if (state.activeAttacks.length === 0) return
 
-    const { nextAttacks, infectedEdgeIds } = processAttackTick({
-      nodes: state.nodes,
-      edges: state.edges,
-      activeAttacks: state.activeAttacks,
-      logEvent: state.logEvent,
-      markNodeStatus: state.markNodeStatus,
-      updateMetrics: state.updateMetrics,
+    // Process attacks and healing simultaneously
+    let attackResult = { nextAttacks: [], infectedEdgeIds: state.infectedEdgeIds }
+    if (state.activeAttacks.length > 0) {
+      attackResult = processAttackTick({
+        nodes: state.nodes,
+        edges: state.edges,
+        activeAttacks: state.activeAttacks,
+        logEvent: state.logEvent,
+        markNodeStatus: state.markNodeStatus,
+        updateMetrics: state.updateMetrics,
+      })
+    }
+
+    // Start auto-healing for newly infected nodes (simultaneous with attacks)
+    const currentNodes = get().nodes // Get fresh node state after attack processing
+    console.log(`[DEBUG] Checking ${currentNodes.length} nodes for healing...`)
+    
+    currentNodes.forEach(node => {
+      console.log(`[DEBUG] Node ${node.id}: infected=${node.data.isInfected}, status=${node.data.status}, healingProgress=${node.data.healingProgress}`)
     })
+    
+    const newlyInfected = currentNodes.filter(node => 
+      node.data.isInfected && 
+      (node.data.status === 'compromised' || node.data.status === 'under_attack') &&
+      !node.data.healingProgress
+    )
+    
+    console.log(`[DEBUG] Found ${newlyInfected.length} newly infected nodes:`, newlyInfected.map(n => n.id))
+    
+    newlyInfected.forEach(node => {
+      console.log(`[DEBUG] Starting auto-heal for ${node.id} (status: ${node.data.status}, infected: ${node.data.isInfected})`)
+      get().startAutoHeal(node.id)
+    })
+
+    // Process auto-healing (simultaneous with ongoing attacks)
+    get().processAutoHealing()
 
     const infectedCount = get().nodes.filter((node) => node.data.isInfected).length
     const blocked = get().metrics.attacksBlocked
@@ -362,8 +663,8 @@ export const useSimulatorStore = create((set, get) => ({
     const ratio = total > 0 ? Number(((blocked / total) * 100).toFixed(1)) : 0
 
     set((curr) => ({
-      activeAttacks: nextAttacks,
-      infectedEdgeIds,
+      activeAttacks: attackResult.nextAttacks,
+      infectedEdgeIds: attackResult.infectedEdgeIds,
       simulationStatus: {
         ...curr.simulationStatus,
         lastTick: Date.now(),
@@ -371,7 +672,7 @@ export const useSimulatorStore = create((set, get) => ({
       analyticsData: {
         attackFrequency: [
           ...curr.analyticsData.attackFrequency.slice(-11),
-          { time: nowTime(), count: curr.activeAttacks.length },
+          { time: nowTime(), count: attackResult.nextAttacks.length },
         ],
         infectedTimeline: [
           ...curr.analyticsData.infectedTimeline.slice(-11),

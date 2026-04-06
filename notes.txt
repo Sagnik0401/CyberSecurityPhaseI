@@ -1,0 +1,4 @@
+1. Node healing - Automated and manual ✅ COMPLETED
+2. Node specific attack impact ✅ COMPLETED
+3. Defence enhancment
+4. Quarantine feature

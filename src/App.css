@@ -206,6 +206,18 @@ select {
   background: linear-gradient(180deg, #991b1b, #7f1d1d);
 }
 
+.btn-success {
+  border-color: #166534;
+  background: linear-gradient(180deg, #16a34a, #15803d);
+  color: #dcfce7;
+}
+
+.btn-warning {
+  border-color: #92400e;
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+  color: #fef3c7;
+}
+
 .btn-muted {
   border-color: #374151;
   background: linear-gradient(180deg, #374151, #1f2937);
@@ -280,8 +292,64 @@ select {
   color: #f87171;
 }
 
+.log-success {
+  color: #22c55e;
+}
+
+/* Lethal attack styling */
+.log-lethal {
+  color: #dc2626;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
 .chart-panel {
   margin-top: 12px;
+}
+
+/* Healing Progress Styles */
+.healing-progress {
+  margin-top: 6px;
+  width: 100%;
+}
+
+.healing-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(139, 92, 246, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.healing-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.healing-text {
+  font-size: 10px;
+  color: #a78bfa;
+  font-weight: bold;
+}
+
+.healing-pulse {
+  animation: healingPulse 2s infinite;
+}
+
+@keyframes healingPulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(139, 92, 246, 0);
+  }
 }
 
 .chart-grid {

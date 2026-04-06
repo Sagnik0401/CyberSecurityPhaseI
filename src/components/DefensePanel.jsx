@@ -9,6 +9,8 @@ export default function DefensePanel() {
   const addNode = useSimulatorStore((s) => s.addNode)
   const deleteSelectedNode = useSimulatorStore((s) => s.deleteSelectedNode)
   const updateNodeData = useSimulatorStore((s) => s.updateNodeData)
+  const healNode = useSimulatorStore((s) => s.healNode)
+  const healAllNodes = useSimulatorStore((s) => s.healAllNodes)
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) || null,
@@ -75,6 +77,26 @@ export default function DefensePanel() {
             onClick={() => selectedNode && addDefenseToNode(selectedNode.id, defenseType)}
           >
             Deploy
+          </button>
+        </div>
+      </div>
+
+      {/* Healing Controls */}
+      <div className="field-group">
+        <label>Node Recovery</label>
+        <div className="field-row">
+          <button 
+            className="btn btn-success" 
+            disabled={!selectedNode || (!selectedNode?.data.isInfected && selectedNode?.data.status !== 'compromised')}
+            onClick={() => selectedNode && healNode(selectedNode.id)}
+          >
+            Heal Selected
+          </button>
+          <button 
+            className="btn btn-warning" 
+            onClick={healAllNodes}
+          >
+            Heal All
           </button>
         </div>
       </div>

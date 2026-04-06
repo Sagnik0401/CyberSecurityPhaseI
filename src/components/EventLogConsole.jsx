@@ -76,11 +76,29 @@ export default function EventLogConsole() {
         ) : (
           filtered.map((log) => (
             <div key={log.id} className={`log-line log-${log.severity}`}>
-              [{log.timestamp}] {log.eventType} :: {log.node} :: {log.details}
+              [{log.timestamp}] {log.eventType} :: {log.node} :: {renderLogDetails(log.details)}
             </div>
           ))
         )}
       </div>
     </div>
   )
+}
+
+function renderLogDetails(details) {
+  // Check if details contains [LETHAL] tag and render it with special styling
+  if (details.includes('[LETHAL]')) {
+    const parts = details.split('[LETHAL]')
+    return (
+      <>
+        {parts.map((part, index) => (
+          <React.Fragment key={index}>
+            {index > 0 && <span className="log-lethal">[LETHAL]</span>}
+            {part}
+          </React.Fragment>
+        ))}
+      </>
+    )
+  }
+  return details
 }
